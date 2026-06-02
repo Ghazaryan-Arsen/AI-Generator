@@ -31,7 +31,18 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error:', err);
-      const message = err.response?.data?.message || 'Network error or server unreachable. Please try again.';
+      let message = 'An unexpected error occurred.';
+      
+      if (err.code === 'ECONNABORTED') {
+        message = 'Request timed out. The AI model is taking too long to respond.';
+      } else if (err.response) {
+        message = err.response.data?.message || `Server error: ${err.response.status}`;
+      } else if (err.request) {
+        message = 'Could not reach the server. Please check your internet connection or VITE_API_URL.';
+      } else {
+        message = err.message || message;
+      }
+      
       setError(message);
     } finally {
       setIsLoading(false);

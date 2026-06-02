@@ -16,6 +16,8 @@ export const generateImage = async (prompt: string, style: string, aspectRatio: 
     prompt,
     style,
     aspectRatio,
+  }, {
+    timeout: 30000, // 30 seconds
   });
   return response.data;
 };
