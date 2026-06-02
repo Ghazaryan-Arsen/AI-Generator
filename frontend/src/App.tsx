@@ -1,186 +1,440 @@
 import React, { useState, useEffect } from 'react';
-import { generateImage } from './api';
+import { useImageGeneration } from './hooks/useImageGeneration';
+import { Download, Trash2, Image as ImageIcon, AlertCircle, Sparkles, X, Heart } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface GalleryItem {
+  id: string;
+  url: string;
+  prompt: string;
+  timestamp: number;
+  isFavorite?: boolean;
+}
 
 const App: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('Realistic');
   const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [isLoading, setIsLoading] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<string[]>(() => {
-    const saved = localStorage.getItem('image_history');
+  const [gallery, setGallery] = useState<GalleryItem[]>(() => {
+    const saved = localStorage.getItem('image_gallery');
     return saved ? JSON.parse(saved) : [];
   });
+  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
+
+  const { currentJob, isLoading, error, generate, cancel } = useImageGeneration();
 
   useEffect(() => {
-    localStorage.setItem('image_history', JSON.stringify(history));
-  }, [history]);
+    localStorage.setItem('image_gallery', JSON.stringify(gallery));
+  }, [gallery]);
 
-  const handleGenerate = async () => {
-    if (!prompt) return;
-    setIsLoading(true);
-    setError(null);
+  useEffect(() => {
+    if (currentJob?.status === 'completed' && currentJob.imageUrl) {
+      const newItem: GalleryItem = {
+        id: currentJob.id,
+        url: currentJob.imageUrl,
+        prompt: currentJob.prompt,
+        timestamp: Date.now(),
+      };
+      setGallery(prev => [newItem, ...prev]);
+    }
+  }, [currentJob?.status, currentJob?.imageUrl, currentJob?.id, currentJob?.prompt]);
+
+  const handleGenerate = () => {
+    if (!prompt || isLoading) return;
+    generate(prompt, style, aspectRatio);
+  };
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGallery(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleDownload = async (url: string, filename: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
-      const data = await generateImage(prompt, style, aspectRatio);
-      if (data.success) {
-        setImageUrl(data.imageUrl);
-        setHistory([data.imageUrl, ...history]);
-      } else {
-        setError(data.message || 'Failed to generate image');
-      }
-    } catch (err: any) {
-      console.error('Error:', err);
-      let message = 'An unexpected error occurred.';
-      
-      if (err.code === 'ECONNABORTED') {
-        message = 'Request timed out. The AI model is taking too long to respond.';
-      } else if (err.response) {
-        message = err.response.data?.message || `Server error: ${err.response.status}`;
-      } else if (err.request) {
-        message = 'Could not reach the server. Please check your internet connection or VITE_API_URL.';
-      } else {
-        message = err.message || message;
-      }
-      
-      setError(message);
-    } finally {
-      setIsLoading(false);
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  };
+
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGallery(prev => prev.map(item =>
+      item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
+    ));
+    if (selectedImage?.id === id) {
+      setSelectedImage(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-slate-950 text-slate-50 p-4 md:p-8 font-sans selection:bg-blue-500/30">
+      <div className="max-w-6xl mx-auto">
+        <header className="text-center mb-12 space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-2"
+          >
+            <Sparkles size={14} />
+            <span>Production Ready AI</span>
+          </motion.div>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight bg-gradient-to-br from-white via-slate-200 to-slate-500 bg-clip-text text-transparent">
             AI Image Generator
           </h1>
-          <p className="text-slate-400 mt-2">Turn your imagination into art</p>
-          {import.meta.env.MODE === 'development' && !import.meta.env.VITE_API_URL && (
-             <p className="text-amber-500 text-xs mt-2">Running in Dev Mode (Proxy)</p>
-          )}
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+            Experience lightning-fast, high-quality image generation with our optimized stable diffusion pipeline.
+          </p>
         </header>
 
-        <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Controls Section */}
-          <div className="space-y-6 bg-slate-900 p-6 rounded-2xl border border-slate-800">
-            <div>
-              <label className="block text-sm font-medium mb-2 text-slate-300">Prompt</label>
-              <textarea
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[120px] resize-none"
-                placeholder="Describe what you want to see..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                maxLength={500}
-                disabled={isLoading}
-              />
-              <div className="text-right text-xs text-slate-500 mt-1">
-                {prompt.length}/500
+          <section className="lg:col-span-5 space-y-6">
+            <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300 ml-1">Your Prompt</label>
+                <textarea
+                  className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none min-h-[140px] resize-none transition-all placeholder:text-slate-600"
+                  placeholder="A futuristic city with neon lights and flying cars, digital art style..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  maxLength={500}
+                  disabled={isLoading}
+                />
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Max 500 characters</span>
+                  <span className={`text-xs font-medium ${prompt.length > 450 ? 'text-amber-500' : 'text-slate-500'}`}>
+                    {prompt.length}/500
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-slate-300">Style</label>
-                <select
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 outline-none"
-                  value={style}
-                  onChange={(e) => setStyle(e.target.value)}
-                >
-                  <option>Realistic</option>
-                  <option>Digital Art</option>
-                  <option>Oil Painting</option>
-                  <option>Anime</option>
-                  <option>Cyberpunk</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-300 ml-1">Art Style</label>
+                  <select
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500/50 transition-all cursor-pointer appearance-none"
+                    value={style}
+                    onChange={(e) => setStyle(e.target.value)}
+                    disabled={isLoading}
+                  >
+                    {['Realistic', 'Digital Art', 'Oil Painting', 'Anime', 'Cyberpunk'].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-300 ml-1">Aspect Ratio</label>
+                  <select
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500/50 transition-all cursor-pointer appearance-none"
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value)}
+                    disabled={isLoading}
+                  >
+                    {['1:1', '16:9', '4:3', '9:16'].map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-slate-300">Aspect Ratio</label>
-                <select
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 outline-none"
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                >
-                  <option>1:1</option>
-                  <option>16:9</option>
-                  <option>4:3</option>
-                  <option>9:16</option>
-                </select>
-              </div>
-            </div>
 
-            <button
-              onClick={handleGenerate}
-              disabled={isLoading || !prompt}
-              className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 ${
-                isLoading || !prompt
-                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-lg shadow-blue-900/20'
-              }`}
-            >
-              {isLoading ? 'Generating...' : 'Generate Image'}
-            </button>
-          </div>
+              {isLoading ? (
+                <button
+                  onClick={cancel}
+                  className="w-full py-4 rounded-2xl font-bold text-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 group"
+                >
+                  <X size={20} className="group-hover:rotate-90 transition-transform" />
+                  Cancel Generation
+                </button>
+              ) : (
+                <button
+                  onClick={handleGenerate}
+                  disabled={!prompt}
+                  className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-xl ${
+                    !prompt
+                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20 hover:shadow-blue-500/20 active:scale-[0.98]'
+                  }`}
+                >
+                  <Sparkles size={20} />
+                  Generate Masterpiece
+                </button>
+              )}
+            </div>
+          </section>
 
           {/* Preview Section */}
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center min-h-[400px] relative transition-all duration-500">
-            {isLoading ? (
-              <div className="flex flex-col items-center animate-pulse">
-                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-4 text-slate-400 font-medium">AI is crafting your masterpiece...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center p-8">
-                <div className="text-5xl mb-4">⚠️</div>
-                <p className="text-red-400 font-medium">{error}</p>
-                <button 
-                  onClick={handleGenerate}
-                  className="mt-4 text-blue-400 hover:text-blue-300 text-sm underline"
-                >
-                  Try again
-                </button>
-              </div>
-            ) : imageUrl ? (
-              <div className="w-full h-full animate-in fade-in duration-700">
-                <img src={imageUrl} alt="Generated" className="w-full h-full object-cover" />
-                <a 
-                  href={imageUrl} 
-                  download="generated-image.jpg"
-                  className="absolute bottom-4 right-4 bg-black/60 hover:bg-black/80 p-2 rounded-lg backdrop-blur-sm transition-colors"
-                >
-                  📥 Download
-                </a>
-              </div>
-            ) : (
-              <div className="text-center text-slate-500 p-8">
-                <div className="text-6xl mb-4 opacity-20">🎨</div>
-                <p>Your generated image will appear here</p>
-              </div>
-            )}
-          </div>
+          <section className="lg:col-span-7">
+            <div className="bg-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-800 overflow-hidden min-h-[500px] flex flex-col items-center justify-center relative shadow-2xl group">
+              <AnimatePresence mode="wait">
+                {isLoading ? (
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center p-8 space-y-6 text-center"
+                  >
+                    <div className="relative">
+                      <div className="w-24 h-24 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <ImageIcon className="text-blue-500/50" size={32} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold text-white">
+                        {currentJob?.status === 'pending' ? 'In Queue...' : 'Generating Image...'}
+                      </h3>
+                      <p className="text-slate-400 max-w-[280px]">
+                        Our AI is processing your request. This usually takes 15-30 seconds.
+                      </p>
+                    </div>
+                    <div className="w-full max-w-xs bg-slate-800 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${currentJob?.progress || 0}%` }}
+                        className="h-full bg-blue-500"
+                      />
+                    </div>
+                    <span className="text-blue-400 font-mono text-sm">{currentJob?.progress || 0}% Complete</span>
+                  </motion.div>
+                ) : error ? (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center p-12 space-y-4"
+                  >
+                    <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto text-red-500">
+                      <AlertCircle size={40} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold text-white">Generation Failed</h3>
+                      <p className="text-red-400/80 max-w-xs mx-auto">{error}</p>
+                    </div>
+                    <button
+                      onClick={handleGenerate}
+                      className="px-6 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </motion.div>
+                ) : currentJob?.imageUrl ? (
+                  <motion.div
+                    key="image"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="w-full h-full relative group"
+                  >
+                    <img
+                      src={currentJob.imageUrl}
+                      alt="Generated"
+                      className="w-full h-full object-cover max-h-[600px]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-8">
+                      <div className="flex justify-between items-end">
+                        <div className="space-y-1">
+                          <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Prompt</p>
+                          <p className="text-sm text-white line-clamp-2 max-w-md italic">"{currentJob.prompt}"</p>
+                        </div>
+                        <button
+                          onClick={(e) => handleDownload(currentJob.imageUrl!, `ai-image-${currentJob.id}.jpg`, e)}
+                          className="p-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white shadow-lg transition-transform active:scale-95"
+                        >
+                          <Download size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center p-12 space-y-6 opacity-40 group-hover:opacity-60 transition-opacity"
+                  >
+                    <div className="w-24 h-24 bg-slate-800 rounded-3xl flex items-center justify-center mx-auto rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                      <ImageIcon size={48} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-lg font-medium">Your canvas is empty</p>
+                      <p className="text-sm">Enter a prompt and click generate to see the magic</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </section>
         </main>
 
         {/* Gallery Section */}
-        <section className="mt-16">
-          <h2 className="text-2xl font-bold mb-6">Gallery History</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {history.map((url, index) => (
-              <div key={index} className="aspect-square rounded-xl overflow-hidden border border-slate-800 hover:border-blue-500 transition-colors cursor-pointer group relative">
-                <img src={url} alt={`History ${index}`} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-sm font-medium">View</span>
-                </div>
-              </div>
-            ))}
-            {history.length === 0 && (
-              <div className="col-span-full py-12 text-center text-slate-600 border-2 border-dashed border-slate-800 rounded-2xl">
-                No images generated yet
-              </div>
-            )}
+        <section className="mt-24 space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="text-3xl font-black tracking-tight">Recent Creations</h2>
+              <p className="text-slate-500">Your personal history of AI-generated art</p>
+            </div>
+            <div className="px-4 py-1 bg-slate-900 border border-slate-800 rounded-full text-xs font-bold text-slate-400 uppercase tracking-widest">
+              {gallery.length} Images
+            </div>
           </div>
+
+          {gallery.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <AnimatePresence initial={false}>
+                {gallery.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="aspect-square rounded-2xl overflow-hidden border border-slate-800 hover:border-blue-500/50 transition-all cursor-pointer group relative shadow-lg"
+                    onClick={() => setSelectedImage(item)}
+                  >
+                    <img src={item.url} alt="Gallery" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-between p-3">
+                      <div className="flex justify-between items-start">
+                        <button
+                          onClick={(e) => toggleFavorite(item.id, e)}
+                          className={`p-2 rounded-xl transition-all backdrop-blur-md ${
+                            item.isFavorite
+                              ? 'bg-pink-500 text-white'
+                              : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}
+                        >
+                          <Heart size={16} fill={item.isFavorite ? "currentColor" : "none"} />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(item.id, e)}
+                          className="p-2 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all backdrop-blur-md"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">
+                          {new Date(item.timestamp).toLocaleDateString()}
+                        </span>
+                        <button
+                          onClick={(e) => handleDownload(item.url, `ai-image-${item.id}.jpg`, e)}
+                          className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all backdrop-blur-md"
+                        >
+                          <Download size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div className="py-20 text-center space-y-4 bg-slate-900/30 rounded-[40px] border-2 border-dashed border-slate-800/50">
+              <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mx-auto text-slate-700">
+                <ImageIcon size={32} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-slate-400 font-medium">No images generated yet</p>
+                <p className="text-slate-600 text-sm">Start creating to build your collection</p>
+              </div>
+            </div>
+          )}
         </section>
       </div>
+
+      {/* Lightbox / Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-slate-950/90 backdrop-blur-md"
+            onClick={() => setSelectedImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 rounded-[32px] overflow-hidden max-w-4xl w-full border border-slate-800 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                <div className="aspect-square bg-black">
+                  <img src={selectedImage.url} alt="Preview" className="w-full h-full object-contain" />
+                </div>
+                <div className="p-8 flex flex-col justify-between space-y-8">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h3 className="text-2xl font-black">Creation Details</h3>
+                        <p className="text-slate-500 text-sm">Generated on {new Date(selectedImage.timestamp).toLocaleString()}</p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedImage(null)}
+                        className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black">Prompt Used</label>
+                      <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 italic text-slate-300">
+                        "{selectedImage.prompt}"
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={(e) => toggleFavorite(selectedImage.id, e)}
+                      className={`px-4 py-4 rounded-2xl font-bold transition-all flex items-center justify-center ${
+                        selectedImage.isFavorite
+                          ? 'bg-pink-500 text-white'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      <Heart size={20} fill={selectedImage.isFavorite ? "currentColor" : "none"} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDownload(selectedImage.url, `ai-image-${selectedImage.id}.jpg`, e)}
+                      className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Download size={20} />
+                      Download HD
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        handleDelete(selectedImage.id, e);
+                        setSelectedImage(null);
+                      }}
+                      className="px-4 py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl font-bold transition-all"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Footer */}
+      <footer className="mt-24 py-12 border-t border-slate-900 text-center text-slate-600 text-sm">
+        <p>&copy; {new Date().getFullYear()} AI Image Generator. Optimized for Maximum Performance.</p>
+      </footer>
     </div>
   );
 };
