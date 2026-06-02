@@ -50,17 +50,18 @@ export class HFService {
               'Content-Type': 'application/json',
             },
             responseType: 'arraybuffer',
-            timeout: 90000, // Increased to 90s timeout
+            timeout: 90000,
           }
         );
 
         const duration = Date.now() - startTime;
-        console.log(`[${new Date().toISOString()}] HF Generation successful in ${duration}ms`);
+        console.log(`HF Generation successful in ${duration}ms`);
 
-        if (String(response.headers['content-type']).includes('application/json')) {
+        // Check if the response is actually JSON (meaning an error) despite being requested as arraybuffer
+        const contentType = String(response.headers['content-type'] || '');
+        if (contentType.includes('application/json')) {
           const body = JSON.parse(Buffer.from(response.data).toString());
           if (body.error && body.error.includes('loading')) {
-            console.warn(`[${new Date().toISOString()}] HF Model still loading...`);
             throw { response: { status: 503 }, message: body.error };
           }
           if (body.error) {
@@ -76,29 +77,26 @@ export class HFService {
         return buffer;
       } catch (error: any) {
         lastError = error;
+
+        // If we already threw a custom error or 503, don't try to parse again
+        if (error.response?.status === 503 || error.message.startsWith('HF API Error')) {
+           // Fall through to retry logic
+        } else if (error.response?.data instanceof Buffer) {
+          try {
+            const errorData = JSON.parse(error.response.data.toString());
+            error.message = errorData.error || error.message;
+          } catch (e) {
+            // Not JSON, keep original error
+          }
+        }
+
         const status = error.response?.status;
-ai-image-generator-improvements-8591800724981460221
-        const errorData = error.response?.data instanceof Buffer
-          ? JSON.parse(error.response.data.toString())
-          : error.response?.data;
-
-        const message = errorData?.error || error.message;
-
-        const message = error.response?.data?.toString() || error.message;
- main
+        const message = error.message;
         const isRetryable = status === 503 || status === 429 || error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
 
-        console.error(`[${new Date().toISOString()}] HF API Error (Attempt ${i + 1}): status=${status}, message="${message}"`);
-
         if (i < retries && isRetryable) {
- ai-image-generator-improvements-8591800724981460221
-          // Exponential backoff with jitter
           const delay = Math.pow(2, i) * 2000 + Math.random() * 1000;
           console.log(`HF API retryable error (${status || error.code}: ${message}). Retrying in ${Math.round(delay)}ms... (Attempt ${i + 1}/${retries})`);
-
-          const delay = Math.pow(2, i) * 1000;
-          console.log(`[${new Date().toISOString()}] HF API busy. Retrying in ${delay}ms...`);
- main
           await this.sleep(delay);
           continue;
         }
@@ -108,7 +106,6 @@ ai-image-generator-improvements-8591800724981460221
       }
     }
 
-    // Format the error message to be more user friendly
     let finalMessage = 'Failed to generate image. ';
     if (lastError.code === 'ECONNABORTED') finalMessage += 'Request timed out.';
     else if (lastError.response?.status === 503) finalMessage += 'AI model is currently loading, please try again in a moment.';

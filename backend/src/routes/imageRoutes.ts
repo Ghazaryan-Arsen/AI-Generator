@@ -12,8 +12,6 @@ router.post(
       .trim()
       .notEmpty()
       .withMessage('Prompt is required')
-      .isLength({ min: 2 })
-      .withMessage('Prompt must be at least 2 characters long')
       .isLength({ max: 500 })
       .withMessage('Prompt too long'),
     body('style').optional().isString(),

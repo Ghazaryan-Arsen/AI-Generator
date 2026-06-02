@@ -17,9 +17,6 @@ export class ImageController {
 
     try {
       const { prompt, style, aspectRatio } = req.body;
-
-      console.log(`[${new Date().toISOString()}] Generation request received: prompt="${prompt}", style="${style}"`);
-
       const job = jobService.createJob(prompt, style, aspectRatio);
 
       const response: ApiResponse<Job> = {
@@ -28,10 +25,10 @@ export class ImageController {
       };
       res.status(202).json(response);
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Controller Error:`, error.message);
+      console.error('Controller Error:', error.message);
       const response: ApiResponse<null> = {
         success: false,
-        message: error.message || 'Failed to initiate image generation'
+        message: 'Failed to initiate image generation'
       };
       res.status(500).json(response);
     }

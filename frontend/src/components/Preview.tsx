@@ -9,6 +9,7 @@ interface PreviewProps {
   currentJob: Job | null;
   handleGenerate: () => void;
   handleDownload: (url: string, filename: string, e: React.MouseEvent) => void;
+  baseUrl: string;
 }
 
 const Preview: React.FC<PreviewProps> = ({
@@ -17,7 +18,10 @@ const Preview: React.FC<PreviewProps> = ({
   currentJob,
   handleGenerate,
   handleDownload,
+  baseUrl,
 }) => {
+  const imageUrl = currentJob?.imageUrl ? (currentJob.imageUrl.startsWith('http') ? currentJob.imageUrl : `${baseUrl}${currentJob.imageUrl}`) : null;
+
   return (
     <section className="lg:col-span-7">
       <div className="bg-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-800 overflow-hidden min-h-[500px] flex flex-col items-center justify-center relative shadow-2xl group">
@@ -77,7 +81,7 @@ const Preview: React.FC<PreviewProps> = ({
                 Try Again
               </button>
             </motion.div>
-          ) : currentJob?.imageUrl ? (
+          ) : (imageUrl && currentJob) ? (
             <motion.div
               key="image"
               initial={{ opacity: 0 }}
@@ -85,7 +89,7 @@ const Preview: React.FC<PreviewProps> = ({
               className="w-full h-full relative group flex items-center justify-center"
             >
               <img
-                src={currentJob.imageUrl}
+                src={imageUrl}
                 alt="Generated"
                 className="max-w-full max-h-[600px] object-contain"
               />
@@ -96,7 +100,7 @@ const Preview: React.FC<PreviewProps> = ({
                     <p className="text-sm text-white line-clamp-2 max-w-md italic">"{currentJob.prompt}"</p>
                   </div>
                   <button
-                    onClick={(e) => handleDownload(currentJob.imageUrl!, `ai-image-${currentJob.id}.jpg`, e)}
+                    onClick={(e) => handleDownload(imageUrl, `ai-image-${currentJob.id}.jpg`, e)}
                     className="p-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white shadow-lg transition-transform active:scale-95"
                   >
                     <Download size={20} />
