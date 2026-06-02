@@ -1,0 +1,13 @@
+
+> backend@1.0.0 dev
+> node --loader ts-node/esm src/index.ts
+
+(node:256178) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:256178) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Server is running on port 5000
+Generating image for: "A futuristic city at sunset", Style: Realistic, Aspect: 1:1
+No HF_TOKEN found, falling back to mock.
