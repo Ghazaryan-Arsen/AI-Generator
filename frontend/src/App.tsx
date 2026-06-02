@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { generateImage } from './api';
 
 const App: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -21,7 +22,6 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { generateImage } = await import('./api');
       const data = await generateImage(prompt, style, aspectRatio);
       if (data.success) {
         setImageUrl(data.imageUrl);
