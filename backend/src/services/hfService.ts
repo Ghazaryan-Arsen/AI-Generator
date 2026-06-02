@@ -46,11 +46,12 @@ export class HFService {
         );
 
         const duration = Date.now() - startTime;
-        console.log(`HF Generation successful in ${duration}ms`);
+        console.log(`[${new Date().toISOString()}] HF Generation successful in ${duration}ms`);
 
         if (String(response.headers['content-type']).includes('application/json')) {
           const body = JSON.parse(Buffer.from(response.data).toString());
           if (body.error && body.error.includes('loading')) {
+            console.warn(`[${new Date().toISOString()}] HF Model still loading...`);
             throw { response: { status: 503 }, message: body.error };
           }
         }
@@ -59,11 +60,14 @@ export class HFService {
       } catch (error: any) {
         lastError = error;
         const status = error.response?.status;
+        const message = error.response?.data?.toString() || error.message;
         const isRetryable = status === 503 || status === 429 || error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
+
+        console.error(`[${new Date().toISOString()}] HF API Error (Attempt ${i + 1}): status=${status}, message="${message}"`);
 
         if (i < retries && isRetryable) {
           const delay = Math.pow(2, i) * 1000;
-          console.log(`HF API busy (${status || error.code}). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+          console.log(`[${new Date().toISOString()}] HF API busy. Retrying in ${delay}ms...`);
           await this.sleep(delay);
           continue;
         }

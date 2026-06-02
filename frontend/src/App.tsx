@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useImageGeneration } from './hooks/useImageGeneration';
 import { Download, Trash2, Image as ImageIcon, AlertCircle, Sparkles, X, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,17 +39,18 @@ const App: React.FC = () => {
     }
   }, [currentJob?.status, currentJob?.imageUrl, currentJob?.id, currentJob?.prompt]);
 
-  const handleGenerate = () => {
-    if (!prompt || isLoading) return;
-    generate(prompt, style, aspectRatio);
-  };
+  const handleGenerate = useCallback(() => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt || isLoading) return;
+    generate(trimmedPrompt, style, aspectRatio);
+  }, [prompt, isLoading, style, aspectRatio, generate]);
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setGallery(prev => prev.filter(item => item.id !== id));
-  };
+  }, []);
 
-  const handleDownload = async (url: string, filename: string, e: React.MouseEvent) => {
+  const handleDownload = useCallback(async (url: string, filename: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const response = await fetch(url);
@@ -65,17 +66,20 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Download failed:', err);
     }
-  };
+  }, []);
 
-  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+  const toggleFavorite = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setGallery(prev => prev.map(item =>
       item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
     ));
-    if (selectedImage?.id === id) {
-      setSelectedImage(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
-    }
-  };
+    setSelectedImage(prev => {
+      if (prev?.id === id) {
+        return { ...prev, isFavorite: !prev.isFavorite };
+      }
+      return prev;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 p-4 md:p-8 font-sans selection:bg-blue-500/30">
@@ -159,15 +163,15 @@ const App: React.FC = () => {
               ) : (
                 <button
                   onClick={handleGenerate}
-                  disabled={!prompt}
+                  disabled={!prompt.trim() || isLoading}
                   className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-xl ${
-                    !prompt
+                    !prompt.trim() || isLoading
                       ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20 hover:shadow-blue-500/20 active:scale-[0.98]'
                   }`}
                 >
                   <Sparkles size={20} />
-                  Generate Masterpiece
+                  {isLoading ? 'Processing...' : 'Generate Masterpiece'}
                 </button>
               )}
             </div>

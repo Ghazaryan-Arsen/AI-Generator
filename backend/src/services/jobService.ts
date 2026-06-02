@@ -65,7 +65,9 @@ export class JobService {
     const job = this.jobs.get(id);
     if (!job) return;
 
+    const startTime = Date.now();
     try {
+      console.log(`[${new Date().toISOString()}] Processing job ${id}...`);
       this.updateJob(id, { status: 'processing', progress: 10 });
 
       const enhancedPrompt = promptService.enhancePrompt(job.prompt, job.style);
@@ -82,8 +84,11 @@ export class JobService {
         progress: 100,
         imageUrl
       });
+      const duration = Date.now() - startTime;
+      console.log(`[${new Date().toISOString()}] Job ${id} completed successfully in ${duration}ms`);
     } catch (error: any) {
-      console.error(`Job ${id} failed:`, error.message);
+      const duration = Date.now() - startTime;
+      console.error(`[${new Date().toISOString()}] Job ${id} failed after ${duration}ms:`, error.message);
       this.updateJob(id, {
         status: 'failed',
         error: error.message || 'Failed to generate image',

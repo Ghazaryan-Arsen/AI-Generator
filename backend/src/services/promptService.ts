@@ -36,14 +36,16 @@ export class PromptService {
   public enhancePrompt(prompt: string, style: string = 'Realistic'): string {
     const preset = this.stylePresets[style] || this.stylePresets['Realistic'];
 
-    // Sanitize prompt
-    let enhanced = prompt.trim().substring(0, 500);
+    // Sanitize prompt: trim, remove multiple spaces, and limit length
+    let sanitized = prompt.trim().replace(/\s+/g, ' ').substring(0, 500);
+
+    // Basic sanitization: remove potential script tags or dangerous characters
+    sanitized = sanitized.replace(/[<>]/g, '');
+
+    if (!sanitized) return preset.positive;
 
     // Add quality keywords
-    enhanced = `${enhanced}, ${preset.positive}`;
-
-    // Add negative prompt context (though SD 1.5 via HF Inference API might not support a separate negative prompt parameter easily in a single string, we can try to append it or just stick to positive enhancement)
-    // For now, let's just focus on positive enhancement.
+    const enhanced = `${sanitized}, ${preset.positive}`;
 
     return enhanced;
   }
