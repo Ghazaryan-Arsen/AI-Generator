@@ -1,23 +1,29 @@
 import axios from 'axios';
+import type { ApiResponse, Job } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const baseUrl = API_BASE_URL.replace(/\/$/, '');
 
-export interface GenerateImageResponse {
-  success: boolean;
-  imageUrl: string;
-  message?: string;
-}
+const api = axios.create({
+  baseURL: baseUrl || undefined,
+  timeout: 10000,
+});
 
-export const generateImage = async (prompt: string, style: string, aspectRatio: string): Promise<GenerateImageResponse> => {
-  const baseUrl = API_BASE_URL.replace(/\/$/, '');
-  const url = baseUrl ? `${baseUrl}/api/generate-image` : '/api/generate-image';
-  
-  const response = await axios.post<GenerateImageResponse>(url, {
+export const createJob = async (prompt: string, style: string, aspectRatio: string): Promise<ApiResponse<Job>> => {
+  const response = await api.post<ApiResponse<Job>>('/api/generate-image', {
     prompt,
     style,
     aspectRatio,
-  }, {
-    timeout: 30000, // 30 seconds
   });
+  return response.data;
+};
+
+export const getJobStatus = async (id: string): Promise<ApiResponse<Job>> => {
+  const response = await api.get<ApiResponse<Job>>(`/api/job-status/${id}`);
+  return response.data;
+};
+
+export const getAllJobs = async (): Promise<ApiResponse<Job[]>> => {
+  const response = await api.get<ApiResponse<Job[]>>('/api/jobs');
   return response.data;
 };
