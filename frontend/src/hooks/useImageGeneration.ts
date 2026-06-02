@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { createJob, getJobStatus } from '../api';
-import type { Job } from '../types';
+import type { Job, AspectRatio } from '../types';
 
 export const useImageGeneration = () => {
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
@@ -39,16 +39,18 @@ export const useImageGeneration = () => {
         setIsLoading(false);
         setError('Lost connection to the server');
       }
-    }, 2000); // Poll every 2 seconds
+    }, 1500); // Poll slightly faster for better responsiveness
   }, [stopPolling]);
 
   const generate = useCallback(async (prompt: string, style: string, aspectRatio: string) => {
+    if (isLoading) return; // Prevent duplicate requests
+
     setIsLoading(true);
     setError(null);
     setCurrentJob(null);
 
     try {
-      const response = await createJob(prompt, style, aspectRatio);
+      const response = await createJob(prompt, style, aspectRatio as AspectRatio);
       if (response.success && response.data) {
         setCurrentJob(response.data);
         pollJobStatus(response.data.id);
@@ -61,7 +63,7 @@ export const useImageGeneration = () => {
       setIsLoading(false);
       setError(err.response?.data?.message || 'An unexpected error occurred');
     }
-  }, [pollJobStatus]);
+  }, [pollJobStatus, isLoading]);
 
   const cancel = useCallback(() => {
     stopPolling();

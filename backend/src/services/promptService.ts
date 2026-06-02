@@ -3,26 +3,36 @@ export class PromptService {
 
   private stylePresets: Record<string, { positive: string; negative: string }> = {
     'Realistic': {
-      positive: 'highly detailed, photorealistic, 8k, masterpiece, realistic lighting, sharp focus',
-      negative: 'cartoon, anime, sketches, worst quality, low quality, blurry'
-    },
-    'Digital Art': {
-      positive: 'vibrant colors, clean lines, professional digital illustration, trending on artstation',
-      negative: 'photo, realistic, sketches, low quality'
-    },
-    'Oil Painting': {
-      positive: 'classic oil painting style, visible brushstrokes, rich textures, canvas texture, museum quality',
-      negative: 'photograph, digital, anime, cartoon'
+      positive: 'photorealistic, highly detailed, 8k resolution, masterpiece, sharp focus, realistic lighting, cinematic composition',
+      negative: 'cartoon, anime, sketches, worst quality, low quality, blurry, distorted, deformed, watermark'
     },
     'Anime': {
-      positive: 'modern anime style, high quality cel shading, vivid colors, aesthetic, studio ghibli inspired',
-      negative: 'realistic, photograph, 3d render, worst quality'
+      positive: 'modern anime style, high quality cel shading, vivid colors, aesthetic, studio ghibli inspired, detailed background, sharp lines',
+      negative: 'realistic, photograph, 3d render, worst quality, low quality, blurry, distorted, sketch'
     },
     'Cyberpunk': {
-      positive: 'neon lights, futuristic city, dark moody atmosphere, cinematic lighting, synthwave aesthetic',
-      negative: 'nature, pastoral, bright daylight, old fashioned'
+      positive: 'neon lights, futuristic city, dark moody atmosphere, cinematic lighting, synthwave aesthetic, ultra detailed, glowing elements',
+      negative: 'nature, pastoral, bright daylight, old fashioned, realistic, blurry, low quality'
+    },
+    'Fantasy': {
+      positive: 'ethereal fantasy style, magical atmosphere, intricate details, epic composition, digital painting, trending on artstation, mythical',
+      negative: 'modern, sci-fi, realistic, photograph, low quality, blurry, distorted'
+    },
+    '3D Render': {
+      positive: 'unreal engine 5 render, octan render, ray tracing, ultra detailed, 4k, volumetric lighting, pixar style, smooth textures',
+      negative: '2d, flat, sketch, anime, worst quality, low quality, blurry, photograph'
+    },
+    'Pixel Art': {
+      positive: 'high quality pixel art, 8-bit style, vibrant colors, clean pixels, retro aesthetic, detailed sprite art',
+      negative: 'photograph, 3d, realistic, blurry, smooth, gradient, low quality'
+    },
+    'Digital Art': {
+      positive: 'professional digital illustration, clean lines, vibrant colors, trending on artstation, masterpiece, detailed',
+      negative: 'photograph, realistic, sketches, low quality, blurry, worst quality'
     }
   };
+
+  private defaultNegative = "blurry, low quality, deformed, duplicate, cropped, watermark, distorted face, ugly, bad anatomy, bad proportions, extra limbs, fused fingers, too many fingers, lowres, error, missing fingers, extra digit, fewer digits, jpeg artifacts, signature, username, blurry";
 
   private constructor() {}
 
@@ -37,20 +47,26 @@ export class PromptService {
     const preset = this.stylePresets[style] || this.stylePresets['Realistic'];
 
     // Sanitize prompt
-    let enhanced = prompt.trim().substring(0, 500);
+    let enhanced = prompt.trim();
 
-    // Add quality keywords
+    // Simple enhancement: if the prompt is very short, add some descriptive words
+    if (enhanced.split(' ').length < 5) {
+      enhanced = `A beautiful ${enhanced}`;
+    }
+
+    // Add style-specific positive keywords
     enhanced = `${enhanced}, ${preset.positive}`;
-
-    // Add negative prompt context (though SD 1.5 via HF Inference API might not support a separate negative prompt parameter easily in a single string, we can try to append it or just stick to positive enhancement)
-    // For now, let's just focus on positive enhancement.
 
     return enhanced;
   }
 
   public getNegativePrompt(style: string = 'Realistic'): string {
     const preset = this.stylePresets[style] || this.stylePresets['Realistic'];
-    return preset.negative;
+    return `${this.defaultNegative}, ${preset.negative}`;
+  }
+
+  public getAvailableStyles(): string[] {
+    return Object.keys(this.stylePresets);
   }
 }
 

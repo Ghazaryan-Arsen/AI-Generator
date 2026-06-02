@@ -14,9 +14,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@types/compression": "^1.8.1",
-    "@types/fs-extra": "^11.0.4",
-    "@types/uuid": "^10.0.0",
     "axios": "^1.16.1",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
@@ -30,9 +27,13 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/fs-extra": "^11.0.4",
+    "@types/helmet": "^0.0.48",
     "@types/node": "^25.9.1",
+    "@types/uuid": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
