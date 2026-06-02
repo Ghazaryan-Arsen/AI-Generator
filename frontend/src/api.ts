@@ -9,21 +9,21 @@ const api = axios.create({
   timeout: 10000,
 });
 
-export const createJob = async (prompt: string, style: string, aspectRatio: string): Promise<ApiResponse<Job>> => {
+export const createJob = async (prompt: string, style: string, aspectRatio: string, signal?: AbortSignal): Promise<ApiResponse<Job>> => {
   const response = await api.post<ApiResponse<Job>>('/api/generate-image', {
     prompt,
     style,
     aspectRatio,
-  });
+  }, { signal });
   return response.data;
 };
 
-export const getJobStatus = async (id: string): Promise<ApiResponse<Job>> => {
-  const response = await api.get<ApiResponse<Job>>(`/api/job-status/${id}`);
+export const getJobStatus = async (id: string, signal?: AbortSignal): Promise<ApiResponse<Job>> => {
+  const response = await api.get<ApiResponse<Job>>(`/api/job-status/${id}`, { signal });
   return response.data;
 };
 
-export const getAllJobs = async (): Promise<ApiResponse<Job[]>> => {
-  const response = await api.get<ApiResponse<Job[]>>('/api/jobs');
+export const getAllJobs = async (signal?: AbortSignal): Promise<ApiResponse<Job[]>> => {
+  const response = await api.get<ApiResponse<Job[]>>('/api/jobs', { signal });
   return response.data;
 };

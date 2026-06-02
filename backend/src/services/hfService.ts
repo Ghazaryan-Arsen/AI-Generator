@@ -55,11 +55,12 @@ export class HFService {
         );
 
         const duration = Date.now() - startTime;
-        console.log(`HF Generation successful in ${duration}ms`);
+        console.log(`[${new Date().toISOString()}] HF Generation successful in ${duration}ms`);
 
         if (String(response.headers['content-type']).includes('application/json')) {
           const body = JSON.parse(Buffer.from(response.data).toString());
           if (body.error && body.error.includes('loading')) {
+            console.warn(`[${new Date().toISOString()}] HF Model still loading...`);
             throw { response: { status: 503 }, message: body.error };
           }
           if (body.error) {
@@ -76,17 +77,28 @@ export class HFService {
       } catch (error: any) {
         lastError = error;
         const status = error.response?.status;
+ai-image-generator-improvements-8591800724981460221
         const errorData = error.response?.data instanceof Buffer
           ? JSON.parse(error.response.data.toString())
           : error.response?.data;
 
         const message = errorData?.error || error.message;
+
+        const message = error.response?.data?.toString() || error.message;
+ main
         const isRetryable = status === 503 || status === 429 || error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
 
+        console.error(`[${new Date().toISOString()}] HF API Error (Attempt ${i + 1}): status=${status}, message="${message}"`);
+
         if (i < retries && isRetryable) {
+ ai-image-generator-improvements-8591800724981460221
           // Exponential backoff with jitter
           const delay = Math.pow(2, i) * 2000 + Math.random() * 1000;
           console.log(`HF API retryable error (${status || error.code}: ${message}). Retrying in ${Math.round(delay)}ms... (Attempt ${i + 1}/${retries})`);
+
+          const delay = Math.pow(2, i) * 1000;
+          console.log(`[${new Date().toISOString()}] HF API busy. Retrying in ${delay}ms...`);
+ main
           await this.sleep(delay);
           continue;
         }

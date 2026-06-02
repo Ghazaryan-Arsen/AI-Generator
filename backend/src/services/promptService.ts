@@ -46,6 +46,7 @@ export class PromptService {
   public enhancePrompt(prompt: string, style: string = 'Realistic'): string {
     const preset = this.stylePresets[style] || this.stylePresets['Realistic'];
 
+ ai-image-generator-improvements-8591800724981460221
     // Sanitize prompt
     let enhanced = prompt.trim();
 
@@ -56,6 +57,18 @@ export class PromptService {
 
     // Add style-specific positive keywords
     enhanced = `${enhanced}, ${preset.positive}`;
+
+    // Sanitize prompt: trim, remove multiple spaces, and limit length
+    let sanitized = prompt.trim().replace(/\s+/g, ' ').substring(0, 500);
+
+    // Basic sanitization: remove potential script tags or dangerous characters
+    sanitized = sanitized.replace(/[<>]/g, '');
+
+    if (!sanitized) return preset.positive;
+
+    // Add quality keywords
+    const enhanced = `${sanitized}, ${preset.positive}`;
+ main
 
     return enhanced;
   }
