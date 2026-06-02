@@ -57,6 +57,9 @@ const App: React.FC = () => {
             AI Image Generator
           </h1>
           <p className="text-slate-400 mt-2">Turn your imagination into art</p>
+          {import.meta.env.MODE === 'development' && !import.meta.env.VITE_API_URL && (
+             <p className="text-amber-500 text-xs mt-2">Running in Dev Mode (Proxy)</p>
+          )}
         </header>
 
         <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -69,7 +72,12 @@ const App: React.FC = () => {
                 placeholder="Describe what you want to see..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                maxLength={500}
+                disabled={isLoading}
               />
+              <div className="text-right text-xs text-slate-500 mt-1">
+                {prompt.length}/500
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
