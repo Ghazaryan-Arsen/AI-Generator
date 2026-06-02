@@ -1,6 +1,0 @@
-(node:34973) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
-Server is running on port 5000
-Generating image for: "space adventure", Style: undefined, Aspect: undefined
-No HF_TOKEN found, falling back to mock.

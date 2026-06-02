@@ -19,7 +19,7 @@ app.use(express.json());
 const HF_TOKEN = process.env.HF_TOKEN;
 const MODEL_ID = "runwayml/stable-diffusion-v1-5";
 
-app.post('/generate-image', async (req, res) => {
+app.post('/api/generate-image', async (req, res) => {
   try {
     const { prompt, style, aspectRatio } = req.body;
     console.log(`Generating image for: "${prompt}", Style: ${style}, Aspect: ${aspectRatio}`);
@@ -48,15 +48,28 @@ app.post('/generate-image', async (req, res) => {
 
     res.status(200).json({ success: true, imageUrl });
   } catch (error: any) {
-    console.error('Error generating image:', error.response?.data?.toString() || error.message);
-    res.status(500).json({ success: false, message: 'Failed to generate image' });
+    const errorData = error.response?.data;
+    let errorMessage = error.message;
+
+    if (errorData instanceof ArrayBuffer) {
+      errorMessage = Buffer.from(errorData).toString();
+    } else if (typeof errorData === 'object') {
+      errorMessage = JSON.stringify(errorData);
+    }
+
+    console.error('Error generating image:', errorMessage);
+    res.status(500).json({ 
+      success: false, 
+      message: 'AI Model failed to respond. Please try again later.',
+      details: errorMessage 
+    });
   }
 });
 
 if (process.env.NODE_ENV === 'production') {
   const frontendPath = path.join(__dirname, '../../frontend/dist');
   app.use(express.static(frontendPath));
-  app.get('*', (req, res) => {
+  app.get('{*path}', (req: any, res: any) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 }

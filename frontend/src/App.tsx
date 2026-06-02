@@ -31,7 +31,8 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error:', err);
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      const message = err.response?.data?.message || 'Network error or server unreachable. Please try again.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
