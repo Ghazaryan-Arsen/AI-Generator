@@ -11,8 +11,8 @@ export interface Job {
   progress: number;
   imageUrl?: string;
   error?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface ApiResponse<T> {

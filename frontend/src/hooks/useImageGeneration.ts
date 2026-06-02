@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { createJob, getJobStatus } from '../api';
-import type { Job, AspectRatio } from '../types';
+import type { Job, AspectRatio, ApiResponse } from '../types';
 
 export const useImageGeneration = () => {
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
@@ -23,13 +23,13 @@ export const useImageGeneration = () => {
 
     pollingRef.current = window.setInterval(async () => {
       try {
-        const response = await getJobStatus(jobId);
+        const response: ApiResponse<Job> = await getJobStatus(jobId);
 
         // Reset error count on success
         consecutiveErrorsRef.current = 0;
 
         if (response.success && response.data) {
-          const updatedJob = response.data;
+          const updatedJob = response.data as Job;
           setCurrentJob(updatedJob);
 
           if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
@@ -65,10 +65,11 @@ export const useImageGeneration = () => {
     setCurrentJob(null);
 
     try {
-      const response = await createJob(prompt, style, aspectRatio as AspectRatio);
+      const response: ApiResponse<Job> = await createJob(prompt, style, aspectRatio as AspectRatio);
       if (response.success && response.data) {
-        setCurrentJob(response.data);
-        pollJobStatus(response.data.id);
+        const startedJob = response.data as Job;
+        setCurrentJob(startedJob);
+        pollJobStatus(startedJob.id);
       } else {
         setIsLoading(false);
         setError(response.message || 'Failed to start generation. Please try again.');
