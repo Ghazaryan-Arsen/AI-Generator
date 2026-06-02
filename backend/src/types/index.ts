@@ -1,10 +1,12 @@
 export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
+export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:5' | '4:3' | '3:4';
+
 export interface Job {
   id: string;
   prompt: string;
   style?: string;
-  aspectRatio?: string;
+  aspectRatio?: AspectRatio;
   status: JobStatus;
   progress: number;
   imageUrl?: string;
@@ -16,7 +18,7 @@ export interface Job {
 export interface GenerateImageRequest {
   prompt: string;
   style?: string;
-  aspectRatio?: string;
+  aspectRatio?: AspectRatio;
 }
 
 export interface ApiResponse<T> {
