@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Job, AspectRatio } from '../types/index.js';
+import { Job } from '../types/index.js';
 import { hfService } from './hfService.js';
 import { storageService } from './storageService.js';
 import { promptService } from './promptService.js';
@@ -8,6 +8,9 @@ export class JobService {
   private static instance: JobService;
   private jobs: Map<string, Job> = new Map();
   private readonly MAX_JOBS = 100;
+  private readonly MAX_CONCURRENT_JOBS = 3;
+  private currentProcessingCount = 0;
+  private jobQueue: string[] = [];
   private readonly CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
   private constructor() {
@@ -21,13 +24,13 @@ export class JobService {
     return JobService.instance;
   }
 
-  public createJob(prompt: string, style?: string, aspectRatio?: AspectRatio): Job {
+  public createJob(prompt: string, style?: string, aspectRatio?: string): Job {
     const id = uuidv4();
     const job: Job = {
       id,
       prompt,
       style,
-      aspectRatio: aspectRatio || '1:1',
+      aspectRatio,
       status: 'pending',
       progress: 0,
       createdAt: new Date(),
@@ -41,8 +44,30 @@ export class JobService {
     }
 
     this.jobs.set(id, job);
-    this.processJob(id); // Async start processing
+    this.enqueueJob(id);
     return job;
+  }
+
+  private enqueueJob(id: string) {
+    this.jobQueue.push(id);
+    this.processNextInQueue();
+  }
+
+  private async processNextInQueue() {
+    if (this.currentProcessingCount >= this.MAX_CONCURRENT_JOBS || this.jobQueue.length === 0) {
+      return;
+    }
+
+    const nextJobId = this.jobQueue.shift();
+    if (nextJobId) {
+      this.currentProcessingCount++;
+      try {
+        await this.processJob(nextJobId);
+      } finally {
+        this.currentProcessingCount--;
+        this.processNextInQueue();
+      }
+    }
   }
 
   public getJob(id: string): Job | undefined {
@@ -61,18 +86,6 @@ export class JobService {
     }
   }
 
-  private getDimensions(aspectRatio: AspectRatio = '1:1'): { width: number; height: number } {
-    switch (aspectRatio) {
-      case '16:9': return { width: 768, height: 432 };
-      case '9:16': return { width: 432, height: 768 };
-      case '4:5': return { width: 448, height: 560 };
-      case '4:3': return { width: 640, height: 480 };
-      case '3:4': return { width: 480, height: 640 };
-      case '1:1':
-      default: return { width: 512, height: 512 };
-    }
-  }
-
   private async processJob(id: string) {
     const job = this.jobs.get(id);
     if (!job) return;
@@ -83,12 +96,9 @@ export class JobService {
       this.updateJob(id, { status: 'processing', progress: 10 });
 
       const enhancedPrompt = promptService.enhancePrompt(job.prompt, job.style);
-      const negativePrompt = promptService.getNegativePrompt(job.style);
-      const { width, height } = this.getDimensions(job.aspectRatio);
-
       this.updateJob(id, { progress: 30 });
 
-      const buffer = await hfService.generateImage(enhancedPrompt, negativePrompt, width, height);
+      const buffer = await hfService.generateImage(enhancedPrompt);
       this.updateJob(id, { progress: 80 });
 
       const fileName = `generated-${id}.jpg`;
