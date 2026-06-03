@@ -15,10 +15,12 @@ api.interceptors.response.use(
   async (error) => {
     const { config } = error;
 
-    // Add custom retry logic for idempotent requests or specific errors
-    if (!config || !config.retryCount) config.retryCount = 0;
+    if (!config || !config.retryCount) {
+      if (config) config.retryCount = 0;
+    }
 
     const shouldRetry =
+      config &&
       config.retryCount < 2 &&
       (error.code === 'ECONNABORTED' || error.response?.status === 503 || error.response?.status === 429);
 

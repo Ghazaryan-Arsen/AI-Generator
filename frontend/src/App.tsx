@@ -1,21 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useImageGeneration } from './hooks/useImageGeneration';
- fix/ai-image-generator-stability-9149027563044618605
 import { Download, Trash2, Image as ImageIcon, AlertCircle, Sparkles, X, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toast, ToastContainer } from './components/Toast';
 import type { ToastType } from './components/Toast';
-import Header from './components/Header';
-import Controls from './components/Controls';
-import Preview from './components/Preview';
-import Gallery from './components/Gallery';
-import Lightbox from './components/Lightbox';
-import Login from './components/Login';
-import Register from './components/Register';
-import Pricing from './components/Pricing';
- main
 
-export interface GalleryItem {
+interface GalleryItem {
   id: string;
   url: string;
   prompt: string;
@@ -23,10 +13,7 @@ export interface GalleryItem {
   isFavorite?: boolean;
 }
 
-type View = 'generator' | 'login' | 'register' | 'pricing';
-
 const App: React.FC = () => {
-  const [view, setView] = useState<View>('generator');
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('Realistic');
   const [aspectRatio, setAspectRatio] = useState('1:1');
@@ -108,55 +95,9 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const renderView = () => {
-    switch (view) {
-      case 'login': return <Login onBack={() => setView('generator')} onRegister={() => setView('register')} />;
-      case 'register': return <Register onBack={() => setView('generator')} onLogin={() => setView('login')} />;
-      case 'pricing': return <Pricing onBack={() => setView('generator')} />;
-      default: return (
-        <>
-          <Header onLogin={() => setView('login')} onPricing={() => setView('pricing')} />
-
-          <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <Controls
-              prompt={prompt}
-              setPrompt={setPrompt}
-              style={style}
-              setStyle={setStyle}
-              aspectRatio={aspectRatio}
-              setAspectRatio={setAspectRatio}
-              isLoading={isLoading}
-              handleGenerate={handleGenerate}
-              cancel={cancel}
-            />
-
-            <Preview
-              isLoading={isLoading}
-              error={error}
-              currentJob={currentJob}
-              handleGenerate={handleGenerate}
-              handleDownload={handleDownload}
-            />
-          </main>
-
-          <Gallery
-            gallery={gallery}
-            onSelect={setSelectedImage}
-            onDelete={handleDelete}
-            onDownload={handleDownload}
-            onToggleFavorite={toggleFavorite}
-          />
-        </>
-      );
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 p-4 md:p-8 font-sans selection:bg-blue-500/30">
       <div className="max-w-6xl mx-auto">
- ai-image-generator-improvements-8591800724981460221
-        {renderView()}
-
         <header className="text-center mb-12 space-y-4">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -427,17 +368,88 @@ const App: React.FC = () => {
             </div>
           )}
         </section>
- main
       </div>
 
-      <Lightbox
-        selectedImage={selectedImage}
-        setSelectedImage={setSelectedImage}
-        onToggleFavorite={toggleFavorite}
-        onDownload={handleDownload}
-        onDelete={handleDelete}
-      />
+      {/* Lightbox / Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-slate-950/90 backdrop-blur-md"
+            onClick={() => setSelectedImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 rounded-[32px] overflow-hidden max-w-4xl w-full border border-slate-800 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                <div className="aspect-square bg-black">
+                  <img src={selectedImage.url} alt="Preview" className="w-full h-full object-contain" />
+                </div>
+                <div className="p-8 flex flex-col justify-between space-y-8">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h3 className="text-2xl font-black">Creation Details</h3>
+                        <p className="text-slate-500 text-sm">Generated on {new Date(selectedImage.timestamp).toLocaleString()}</p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedImage(null)}
+                        className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
 
+                    <div className="space-y-3">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black">Prompt Used</label>
+                      <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 italic text-slate-300">
+                        "{selectedImage.prompt}"
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={(e) => toggleFavorite(selectedImage.id, e)}
+                      className={`px-4 py-4 rounded-2xl font-bold transition-all flex items-center justify-center ${
+                        selectedImage.isFavorite
+                          ? 'bg-pink-500 text-white'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      <Heart size={20} fill={selectedImage.isFavorite ? "currentColor" : "none"} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDownload(selectedImage.url, `ai-image-${selectedImage.id}.jpg`, e)}
+                      className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Download size={20} />
+                      Download HD
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        handleDelete(selectedImage.id, e);
+                        setSelectedImage(null);
+                      }}
+                      className="px-4 py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl font-bold transition-all"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Footer */}
       <footer className="mt-24 py-12 border-t border-slate-900 text-center text-slate-600 text-sm">
         <p>&copy; {new Date().getFullYear()} AI Image Generator. Optimized for Maximum Performance.</p>
       </footer>
