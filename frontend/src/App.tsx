@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useImageGeneration } from './hooks/useImageGeneration';
 import { Download, Trash2, Image as ImageIcon, AlertCircle, Sparkles, X, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Toast, ToastContainer } from './components/Toast';
+import type { ToastType } from './components/Toast';
 
 interface GalleryItem {
   id: string;
@@ -20,8 +22,17 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: ToastType }[]>([]);
 
   const { currentJob, isLoading, error, generate, cancel } = useImageGeneration();
+
+  const addToast = useCallback((message: string, type: ToastType) => {
+    setToasts(prev => [...prev, { id: Date.now(), message, type }]);
+  }, []);
+
+  const removeToast = useCallback((id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('image_gallery', JSON.stringify(gallery));
@@ -36,8 +47,11 @@ const App: React.FC = () => {
         timestamp: Date.now(),
       };
       setGallery(prev => [newItem, ...prev]);
+      addToast('Image generated successfully!', 'success');
+    } else if (currentJob?.status === 'failed') {
+      addToast(error || 'Generation failed', 'error');
     }
-  }, [currentJob?.status, currentJob?.imageUrl, currentJob?.id, currentJob?.prompt]);
+  }, [currentJob?.status, currentJob?.imageUrl, currentJob?.id, currentJob?.prompt, error, addToast]);
 
   const handleGenerate = useCallback(() => {
     const trimmedPrompt = prompt.trim();
@@ -439,6 +453,17 @@ const App: React.FC = () => {
       <footer className="mt-24 py-12 border-t border-slate-900 text-center text-slate-600 text-sm">
         <p>&copy; {new Date().getFullYear()} AI Image Generator. Optimized for Maximum Performance.</p>
       </footer>
+
+      <ToastContainer>
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </ToastContainer>
     </div>
   );
 };

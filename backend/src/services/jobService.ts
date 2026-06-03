@@ -8,6 +8,9 @@ export class JobService {
   private static instance: JobService;
   private jobs: Map<string, Job> = new Map();
   private readonly MAX_JOBS = 100;
+  private readonly MAX_CONCURRENT_JOBS = 3;
+  private currentProcessingCount = 0;
+  private jobQueue: string[] = [];
   private readonly CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
   private constructor() {
@@ -41,8 +44,30 @@ export class JobService {
     }
 
     this.jobs.set(id, job);
-    this.processJob(id); // Async start processing
+    this.enqueueJob(id);
     return job;
+  }
+
+  private enqueueJob(id: string) {
+    this.jobQueue.push(id);
+    this.processNextInQueue();
+  }
+
+  private async processNextInQueue() {
+    if (this.currentProcessingCount >= this.MAX_CONCURRENT_JOBS || this.jobQueue.length === 0) {
+      return;
+    }
+
+    const nextJobId = this.jobQueue.shift();
+    if (nextJobId) {
+      this.currentProcessingCount++;
+      try {
+        await this.processJob(nextJobId);
+      } finally {
+        this.currentProcessingCount--;
+        this.processNextInQueue();
+      }
+    }
   }
 
   public getJob(id: string): Job | undefined {

@@ -6,8 +6,36 @@ const baseUrl = API_BASE_URL.replace(/\/$/, '');
 
 const api = axios.create({
   baseURL: baseUrl || undefined,
-  timeout: 10000,
+  timeout: 120000, // 120s timeout for production stability
 });
+
+// Response interceptor for better error classification and retries
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const { config } = error;
+
+    // Add custom retry logic for idempotent requests or specific errors
+    if (!config || !config.retryCount) config.retryCount = 0;
+
+    const shouldRetry =
+      config.retryCount < 2 &&
+      (error.code === 'ECONNABORTED' || error.response?.status === 503 || error.response?.status === 429);
+
+    if (shouldRetry) {
+      config.retryCount += 1;
+      const delay = Math.pow(2, config.retryCount) * 1000;
+      console.warn(`Retrying request (${config.retryCount}/2) in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return api(config);
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timed out. The server might be under heavy load.');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const createJob = async (prompt: string, style: string, aspectRatio: string, signal?: AbortSignal): Promise<ApiResponse<Job>> => {
   const response = await api.post<ApiResponse<Job>>('/api/generate-image', {

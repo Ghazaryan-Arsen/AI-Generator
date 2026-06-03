@@ -8,6 +8,7 @@ import compression from 'compression';
 import { rateLimit } from 'express-rate-limit';
 import imageRoutes from './routes/imageRoutes.js';
 import { storageService } from './services/storageService.js';
+import { errorMiddleware } from './middleware/errorMiddleware.js';
 
 dotenv.config();
 
@@ -35,8 +36,9 @@ app.use('/api/', limiter);
 app.use(compression());
 
 // CORS
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*';
 app.use(cors({
-  origin: '*',
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -49,6 +51,9 @@ app.use('/uploads', express.static(path.join(staticDir, 'uploads')));
 
 // Routes
 app.use('/api', imageRoutes);
+
+// Error Handling Middleware (must be after routes)
+app.use(errorMiddleware);
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -68,6 +73,9 @@ const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Static files served from: ${path.join(staticDir, 'uploads')}`);
 });
+
+// Set server timeout to 5 minutes to handle long-running AI generations if needed
+server.timeout = 300000;
 
 // Graceful Shutdown
 process.on('SIGTERM', () => {

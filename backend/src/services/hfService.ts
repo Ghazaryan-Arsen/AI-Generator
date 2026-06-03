@@ -56,7 +56,23 @@ export class HFService {
           }
         }
 
-        return Buffer.from(response.data, 'binary');
+        const buffer = Buffer.from(response.data, 'binary');
+
+        // Basic buffer validation: check if it's a valid image (JPEG/PNG/WebP)
+        // JPEG: FF D8 FF
+        // PNG: 89 50 4E 47
+        if (buffer.length < 4) {
+          throw new Error('Generated image buffer is too small');
+        }
+
+        const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+        const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+
+        if (!isJpeg && !isPng) {
+          console.warn(`[${new Date().toISOString()}] Warning: Generated buffer may not be a standard image format.`);
+        }
+
+        return buffer;
       } catch (error: any) {
         lastError = error;
         const status = error.response?.status;
